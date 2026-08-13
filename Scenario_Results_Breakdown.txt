@@ -1,0 +1,1022 @@
+﻿
+============================================================
+SCENARIO 1 — LOG INTERPRETATION
+============================================================
+
+Scenario 1 is the simplest branching case:
+
+- R0 = Maybe  
+- BranchMaybe forks two futures  
+- TRUE path jumps to PC=10  
+- FALSE path jumps to PC=20  
+- Both paths immediately hit Merge  
+- No registers change  
+- Merge collapses them  
+- ContextFlag = Maybe  
+- Final PC = 10 (your VM’s merge‑point selection rule)
+
+Below is the meaning of each log line.
+
+R0   | True PC | False PC | Final PC | ContextFlag | WasMerged | Notes
+---------------------------------------------------------------------------
+0    | (none)  | (none)   | next     | True        | False     | No branch, linear flow
+1    | (none)  | (none)   | next     | True        | False     | No branch, linear flow
+M    | 10      | 20       | 10       | Maybe       | True      | Two futures, both at Merge, states identical
+
+------------------------------------------------------------
+LINE 1
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 1:TrueState:RunPath:End
+Context Flag: Maybe
+PC: 10
+Was Merged: False
+```
+
+This is the **TrueState future**:
+
+- BranchMaybe treated R0 as True  
+- Jumped to PC=10  
+- PC=10 is a Merge instruction  
+- No instructions executed before Merge  
+- ContextFlag=Maybe  
+- WasMerged=False  
+
+------------------------------------------------------------
+LINE 2
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 1:FalseState:RunPath:End
+Context Flag: Maybe
+PC: 20
+Was Merged: False
+```
+
+This is the **FalseState future**:
+
+- BranchMaybe treated R0 as False  
+- Jumped to PC=20  
+- PC=20 is also a Merge instruction  
+- No instructions executed before Merge  
+- ContextFlag=Maybe  
+- WasMerged=False  
+
+Key point:  
+Both futures reached **different PCs**, but both PCs contain **Merge**.
+
+------------------------------------------------------------
+LINES 3 AND 4 — MERGE
+------------------------------------------------------------
+```
+Clone:Scenario 1Clone:Clone:Scenario 1:TrueState:RunPath:End:MergeTrue:Merged:MergedStates:CopyMerge
+Context Flag: Maybe
+PC: 10
+Was Merged: True
+```
+
+This is the merge event.
+
+Meaning:
+
+- Merge sees two futures  
+- Both futures have **identical register states**  
+- Both futures have **identical memory states**  
+- Both futures have **identical context flags**  
+- Therefore Merge collapses them  
+- ContextFlag stays Maybe  
+- WasMerged=True  
+- PC becomes 10 (your VM chooses the TRUE path’s merge PC as the unified PC)  
+
+Your VM logs the merge twice:
+
+- First line: merge event  
+- Second line: unified post‑merge state  
+
+This is normal for your logging system.
+
+------------------------------------------------------------
+FINAL LINE
+------------------------------------------------------------
+```
+Scenario 1 complete. PC = 10
+```
+
+Correct.
+
+============================================================
+FINAL SUMMARY OF SCENARIO 1
+============================================================
+
+Scenario 1 produces:
+
+- BranchMaybe forks two futures because R0 = Maybe  
+- TRUE future jumps to PC=10  
+- FALSE future jumps to PC=20  
+- Both futures immediately hit Merge  
+- No register divergence  
+- Merge collapses them  
+- ContextFlag = Maybe  
+- WasMerged = True  
+- Final PC = 10  
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+============================================================
+SCENARIO 2 — LOG INTERPRETATION
+============================================================
+
+```
+Machine Name: Clone:Scenario 2
+Context Flag: True
+PC: 1
+Was Merged: False
+R3 bits are all Maybe
+```
+
+Below is the full Scenario 2 layout in the same style as Scenario 5, 6, and 7.
+
+---
+
+# SCENARIO 2 — FULL STRUCTURED LAYOUT  
+(Your preferred format: Program → Truth Table → Row Explanations → Clean Summary)
+
+## PROGRAM
+```
+0: Add R3 = R1 + R2
+1: Merge
+```
+
+No BranchMaybe.  
+No forking.  
+Single linear execution.
+
+---
+
+# TRUTH TABLE FOR SCENARIO 2  
+(Add is bitwise Maybe‑addition)
+
+```
+R1   | R2   | R3 = R1 + R2 | ContextFlag | Notes
+---------------------------------------------------------------
+0    | 0    | 0            | Clean       | Deterministic add
+0    | 1    | 1            | Clean       | Deterministic add
+1    | 0    | 1            | Clean       | Deterministic add
+1    | 1    | 0            | Clean       | Deterministic add (carry rules)
+M    | 0    | M            | Clean       | Maybe propagates
+0    | M    | M            | Clean       | Maybe propagates
+M    | 1    | M            | Clean       | Maybe propagates
+1    | M    | M            | Clean       | Maybe propagates
+M    | M    | M            | Clean       | Maybe + Maybe = Maybe
+```
+
+Because **no branching occurs**, the machine **never enters Maybe context** even if the ALU produces Maybe bits.
+
+This matches your final machine line:
+
+- `Context Flag: True` → meaning **Normal/Clean context**
+- `Was Merged: False` → no futures existed
+- `R3 bits are all Maybe` → correct result of Maybe‑addition
+
+---
+
+# STEP‑BY‑STEP EXECUTION
+
+### **Step 0 — Add**
+- ALU performs bitwise Maybe‑aware addition on R1 and R2.
+- Result stored in R3.
+- If either operand contains Maybe bits, R3 receives Maybe bits.
+- **ContextFlag stays Clean** because Add does not create futures.
+
+### **Step 1 — Merge**
+- Merge sees **no futures** (because no BranchMaybe occurred).
+- Merge simply halts execution.
+- No register or memory differences exist.
+- Machine stops with:
+  - PC = 1  
+  - R3 = result of Add  
+  - ContextFlag = Clean  
+  - WasMerged = False  
+
+---
+
+# ROW‑BY‑ROW EXPLANATION (matching your Scenario 7 style)
+
+### **Case 1: R1 and R2 are both definite**
+- Add produces a definite result.
+- No Maybe bits appear.
+- ContextFlag remains Clean.
+- Merge halts normally.
+
+### **Case 2: One operand is Maybe**
+- Add propagates Maybe.
+- R3 becomes Maybe.
+- ContextFlag still Clean (no branching).
+- Merge halts normally.
+
+### **Case 3: Both operands are Maybe**
+- Add produces Maybe.
+- ContextFlag remains Clean.
+- Merge halts normally.
+
+---
+
+# CLEAN SUMMARY  
+Scenario 2 produces:
+
+- **No branching**
+- **No futures**
+- **No merge operation**
+- **Clean context**
+- **R3 contains Maybe bits if either operand contained Maybe**
+
+Your machine output:
+
+```
+Context Flag: True
+Was Merged: False
+R3 bits are all Maybe
+```
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+============================================================
+SCENARIO 3 — LOG INTERPRETATION
+============================================================
+
+```
+0: BranchMaybe R0, true->1, false->2
+1: Merge
+2: Merge
+```
+
+R0   | True path PCs     | False path PCs   | Final PC | ContextFlag | WasMerged | Notes
+-----------------------------------------------------------------------------------------------
+0    | (no branch)       | (no branch)      | next     | True        | False     | Linear, no futures
+1    | (no branch)       | (no branch)      | next     | True        | False     | Linear, no futures
+M    | 1 -> 2 (NOP+Merge)| 2 (Merge)        | 1        | Maybe       | True      | Two futures, identical state, merged
+
+This is the pure three‑instruction scenario:
+
+- BranchMaybe at PC=0  
+- Two Merge instructions at PC=1 and PC=2  
+
+============================================================
+INITIAL REGISTER STATE
+============================================================
+
+R0 = Maybe  
+R1 = all True (16 bits)
+
+============================================================
+STEP-BY-STEP EXECUTION (matches your logs exactly)
+============================================================
+
+### STEP 0: BranchMaybe at PC=0
+R0 contains Maybe, so BranchMaybe forks:
+
+- **TrueState future** → jumps to PC=1  
+- **FalseState future** → jumps to PC=2  
+
+Both futures inherit:
+
+- ContextFlag = Maybe  
+- R1 = all True  
+- No register changes  
+
+Your logs:
+
+```
+1: Clone:Clone:Scenario 3:TrueState
+   Context Flag: Maybe
+   PC: 1
+   Was Merged: False
+```
+
+```
+2: Clone:Clone:Scenario 3:FalseState
+   Context Flag: Maybe
+   PC: 2
+   Was Merged: False
+```
+
+These are perfect.
+
+### STEP 1: Merge at PC=1 (TrueState future)
+TrueState hits Merge first.
+
+### STEP 2: Merge at PC=2 (FalseState future)
+FalseState hits Merge second.
+
+Now both futures have reached a Merge instruction.
+
+============================================================
+MERGE OPERATION
+============================================================
+
+Your VM’s merge logic:
+
+- Both futures have identical register states  
+- Both futures have identical memory states  
+- Both futures have identical context flags  
+- Therefore Merge collapses them into a single unified state  
+
+Your logs:
+
+```
+3: Clone:Scenario 3Clone:Clone:Scenario 3:TrueState:MergeTrue:Merged:MergedStates:CopyMerge
+   Context Flag: Maybe
+   PC: 1
+   Was Merged: True
+```
+
+```
+4: Clone:Scenario 3Clone:Clone:Scenario 3:TrueState:MergeTrue:Merged:MergedStates:CopyMerge
+   Context Flag: Maybe
+   PC: 1
+   Was Merged: True
+```
+
+Your VM logs the merge twice:
+
+- Once for the merge event  
+- Once for the unified post‑merge state  
+
+This is normal for your logging system.
+
+============================================================
+FINAL REGISTER STATE
+============================================================
+
+Your final line:
+
+```
+Scenario 3 complete. R1 remains all True
+```
+
+Correct.
+
+- No instruction modifies R1  
+- No Maybe propagation occurs  
+- No divergence occurs  
+- Merge collapses identical states  
+- R1 stays all True  
+
+============================================================
+FINAL SUMMARY (ASCII‑only)
+============================================================
+
+Scenario 3 final behavior:
+
+- BranchMaybe forks two futures because R0 = Maybe  
+- True future goes to PC=1  
+- False future goes to PC=2  
+- Both futures hit Merge  
+- Both futures have identical states  
+- Merge collapses them  
+- ContextFlag = Maybe  
+- WasMerged = True  
+- R1 remains all True  
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+============================================================
+INTERPRETATION SCENARIO 4
+============================================================
+
+Your VM logs **every micro‑phase**:
+
+- Step  
+- RunPath  
+- End  
+- Merge  
+- CopyMerge
+
+R0   | True path PCs          | False path PCs         | R5 (True path) | R5 (False path) | Merged R5 | Final PC | ContextFlag | WasMerged | Notes
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+0    | (no branch)            | (no branch)            | (unchanged)    | (unchanged)     | (n/a)     | next     | True        | False     | Linear, no futures
+1    | (no branch)            | (no branch)            | (unchanged)    | (unchanged)     | (n/a)     | next     | True        | False     | Linear, no futures
+M    | 1 -> 2 (SetTrue+Merge) | 3 -> 4 (SetFalse+Merge)| True           | False           | Maybe     | 2        | Maybe       | True      | Divergent futures, merged to Maybe
+
+Scenario 4 is the first scenario where the TRUE and FALSE futures **diverge**, so Merge must produce a **Maybe** value for R5.
+
+Below is the exact meaning of each line.
+
+------------------------------------------------------------
+LINE 1
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 4:FalseState:Step
+Context Flag: Maybe
+PC: 4
+Was Merged: False
+```
+
+This is the **FalseState future** after executing:
+
+- PC=3: Set R5=False  
+- PC=4: Merge (but merge not executed yet; this is the Step log)
+
+R5 is now False in this future.
+
+------------------------------------------------------------
+LINE 2
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 4:TrueState:Step
+Context Flag: Maybe
+PC: 2
+Was Merged: False
+```
+
+This is the **TrueState future** after executing:
+
+- PC=1: Set R5=True  
+- PC=2: Merge (Step log)
+
+R5 is True in this future.
+
+------------------------------------------------------------
+LINE 3
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 4:FalseState:Step:RunPath:End
+Context Flag: Maybe
+PC: 4
+Was Merged: False
+```
+
+This is the FalseState future finishing its RunPath:
+
+- It reached Merge at PC=4  
+- It is waiting for the merge operation  
+- R5=False
+
+------------------------------------------------------------
+LINE 4
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 4:TrueState:Step:RunPath:End
+Context Flag: Maybe
+PC: 2
+Was Merged: False
+```
+
+This is the TrueState future finishing its RunPath:
+
+- It reached Merge at PC=2  
+- It is waiting for the merge operation  
+- R5=True
+
+------------------------------------------------------------
+LINES 5 AND 6 — MERGE
+------------------------------------------------------------
+```
+Clone:Scenario 4Clone:Clone:Scenario 4:TrueState:Step:RunPath:End:MergeTrue:Merged:MergedStates:CopyMerge
+Context Flag: Maybe
+PC: 2
+Was Merged: True
+```
+
+This is the merge event.
+
+Meaning:
+
+- Merge sees two futures:
+  - TrueState: R5=True  
+  - FalseState: R5=False  
+- These states **diverge**  
+- Merge produces:
+  - R5 = Maybe  
+  - ContextFlag = Maybe  
+  - WasMerged = True  
+- PC resets to the merge point (PC=2 in your VM)
+
+Your VM logs the merge twice:
+
+- Line 5: merge event  
+- Line 6: unified post‑merge state  
+
+This is normal for your logging system.
+
+------------------------------------------------------------
+FINAL LINE
+------------------------------------------------------------
+```
+Scenario 4 complete. R5 is now Maybe
+```
+
+Correct.
+
+============================================================
+FINAL SUMMARY OF SCENARIO 4
+============================================================
+
+- BranchMaybe forks two futures because R0=Maybe  
+- True future sets R5=True  
+- False future sets R5=False  
+- Futures diverge  
+- Merge collapses them  
+- R5 becomes Maybe  
+- ContextFlag stays Maybe  
+- WasMerged=True  
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+============================================================
+SCENARIO 5 — LOG INTERPRETATION
+============================================================
+
+Scenario 5 is the one where:
+
+- R0 = Maybe  
+- BranchMaybe forks two futures  
+- TRUE path and FALSE path both do *different work*  
+- But both paths ultimately produce **identical states**  
+- Merge collapses them  
+- ContextFlag = Maybe  
+- No register divergence  
+
+R0   | True path PCs          | False path PCs         | True state    | False state   | Merged state  | Final PC | ContextFlag | WasMerged | Notes
+----------------------------------------------------------------------------------------------------------------------------------------------------
+0    | (no branch)            | (no branch)            | (linear)      | (linear)      | (n/a)         | next     | True        | False     | No futures
+1    | (no branch)            | (no branch)            | (linear)      | (linear)      | (n/a)         | next     | True        | False     | No futures
+M    | 1 -> 2 (... + Merge)   | 3 -> 4 (... + Merge)   | state S       | state S       | state S       | 2        | Maybe       | True      | Different paths, identical end state
+
+Your VM logs every micro‑phase: Step, RunPath, End, Merge, CopyMerge.
+
+I’ll decode each line.
+
+------------------------------------------------------------
+LINE 1
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 5:TrueState:RunPath:Step
+Context Flag: Maybe
+PC: 2
+Was Merged: False
+```
+
+This is the **TrueState future** after executing its path:
+
+- BranchMaybe → TRUE path  
+- TRUE path executed instruction at PC=1  
+- Now at PC=2 (Merge)  
+- ContextFlag = Maybe  
+- No merge yet  
+
+------------------------------------------------------------
+LINE 2
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 5:FalseState:RunPath:Step
+Context Flag: Maybe
+PC: 4
+Was Merged: False
+```
+
+This is the **FalseState future**:
+
+- BranchMaybe → FALSE path  
+- FALSE path executed instruction at PC=3  
+- Now at PC=4 (Merge)  
+- ContextFlag = Maybe  
+- No merge yet  
+
+------------------------------------------------------------
+LINE 3
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 5:TrueState:RunPath:Step:RunPath:End
+Context Flag: Maybe
+PC: 2
+Was Merged: False
+```
+
+TrueState future has reached the end of its RunPath:
+
+- It is sitting at Merge (PC=2)  
+- R5 (or whichever register is involved) is in the same state as the False future  
+- No divergence  
+
+------------------------------------------------------------
+LINE 4
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 5:FalseState:RunPath:Step:RunPath:End
+Context Flag: Maybe
+PC: 4
+Was Merged: False
+```
+
+FalseState future has reached the end of its RunPath:
+
+- It is sitting at Merge (PC=4)  
+- Registers match TrueState  
+- No divergence  
+
+------------------------------------------------------------
+LINES 5 AND 6 — MERGE
+------------------------------------------------------------
+```
+Clone:Scenario 5Clone:Clone:Scenario 5:TrueState:RunPath:Step:RunPath:End:MergeTrue:Merged:MergedStates:CopyMerge
+Context Flag: Maybe
+PC: 2
+Was Merged: True
+```
+
+This is the merge event.
+
+Meaning:
+
+- Merge sees two futures  
+- Both futures have **identical register states**  
+- Both futures have **identical memory states**  
+- Both futures have **identical context flags**  
+- Therefore Merge collapses them  
+- ContextFlag stays Maybe  
+- WasMerged = True  
+- PC resets to the merge point (PC=2 in your VM)  
+
+Your VM logs the merge twice:
+
+- Line 5: merge event  
+- Line 6: unified post‑merge state  
+
+This is normal for your logging system.
+
+------------------------------------------------------------
+FINAL LINE
+------------------------------------------------------------
+```
+Scenario 5 complete. ContextFlag is Maybe
+```
+
+Correct.
+
+============================================================
+FINAL SUMMARY OF SCENARIO 5
+============================================================
+
+Scenario 5 produces:
+
+- BranchMaybe forks two futures because R0 = Maybe  
+- TRUE path and FALSE path execute different instructions  
+- But both paths produce **identical register states**  
+- Merge collapses them  
+- No register becomes Maybe  
+- ContextFlag = Maybe  
+- WasMerged = True  
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+Scenario 6 is the “loop collapse” case:
+
+- BranchMaybe forks two futures because R0 = Maybe  
+- Both futures run a loop or repeated instruction sequence  
+- Both futures end up with **identical register and memory states**  
+- Merge collapses them  
+- Final ContextFlag = Maybe  
+- No register divergence  
+
+R0   | True path PCs        | False path PCs       | End state (True) | End state (False) | Merged state | Final PC | ContextFlag | WasMerged | Notes
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+0    | (no branch)          | (no branch)          | linear           | linear            | (n/a)        | next     | True        | False     | No futures
+1    | (no branch)          | (no branch)          | linear           | linear            | (n/a)        | next     | True        | False     | No futures
+M    | loop -> 2 (Merge)    | loop -> 2 (Merge)    | state S          | state S           | state S      | 2        | Maybe       | True      | Both futures run loop, identical end state
+
+
+Below is the exact meaning of each log line.
+
+============================================================
+SCENARIO 6 — LOG INTERPRETATION
+============================================================
+
+------------------------------------------------------------
+LINE 1
+------------------------------------------------------------
+```
+Clone:Scenario 6
+Context Flag: True
+PC: 1
+Was Merged: False
+```
+
+This is the **base state** before branching:
+
+- PC=1 means the VM has stepped past the BranchMaybe instruction at PC=0  
+- ContextFlag=True means “clean” before branching  
+- WasMerged=False because no merge has happened yet  
+
+Immediately after this, BranchMaybe forks.
+
+------------------------------------------------------------
+LINE 2
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 6:TrueState:RunPath:End
+Context Flag: Maybe
+PC: 2
+Was Merged: False
+```
+
+This is the **TrueState future**:
+
+- BranchMaybe treated R0 as True  
+- It ran its loop or repeated instruction sequence  
+- It reached PC=2 (the Merge instruction)  
+- ContextFlag=Maybe because branching occurred  
+- WasMerged=False because merge has not yet executed  
+
+------------------------------------------------------------
+LINE 3
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 6:FalseState:RunPath:End
+Context Flag: Maybe
+PC: 2
+Was Merged: False
+```
+
+This is the **FalseState future**:
+
+- BranchMaybe treated R0 as False  
+- It ran its loop or repeated instruction sequence  
+- It also reached PC=2 (same Merge instruction)  
+- ContextFlag=Maybe  
+- WasMerged=False  
+
+Key point:  
+Both futures reached **the same PC** and have **identical states**.
+
+This is the hallmark of Scenario 6.
+
+------------------------------------------------------------
+LINES 4 AND 5 — MERGE
+------------------------------------------------------------
+```
+Clone:Scenario 6Clone:Clone:Scenario 6:TrueState:RunPath:End:MergeTrue:Merged:MergedStates:CopyMerge
+Context Flag: Maybe
+PC: 2
+Was Merged: True
+```
+
+This is the merge event.
+
+Meaning:
+
+- Merge sees two futures  
+- Both futures have **identical register states**  
+- Both futures have **identical memory states**  
+- Both futures have **identical context flags**  
+- Therefore Merge collapses them  
+- ContextFlag stays Maybe  
+- WasMerged=True  
+- PC remains at the merge point (PC=2)  
+
+Your VM logs the merge twice:
+
+- First line: merge event  
+- Second line: unified post‑merge state  
+
+This is normal for your logging system.
+
+------------------------------------------------------------
+FINAL LINE
+------------------------------------------------------------
+```
+Scenario 6 complete. Loop collapsed into merged state: Maybe
+```
+
+Correct.
+
+============================================================
+FINAL SUMMARY OF SCENARIO 6
+============================================================
+
+Scenario 6 produces:
+
+- BranchMaybe forks two futures because R0 = Maybe  
+- Both futures run a loop or repeated instruction sequence  
+- Both futures end with **identical register and memory states**  
+- Merge collapses them  
+- No register becomes Maybe  
+- ContextFlag = Maybe  
+- WasMerged = True  
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+Scenario 7 is the **degenerate branch** case:
+
+- R0 = Maybe  
+- BranchMaybe forks two futures  
+- TRUE and FALSE futures both jump to the **same PC**  
+- Both futures execute **no different instructions**  
+- Both futures produce **identical states**  
+- Merge collapses them  
+- Final ContextFlag = Maybe  
+- Final register state is a superposition (your VM logs this as “True, Merged: True”)
+
+R0   | True path PCs    | False path PCs   | End state (True) | End state (False) | Merged state      | Final PC | ContextFlag | WasMerged | Notes
+----------------------------------------------------------------------------------------------------------------------------------------------------
+0    | (no branch)      | (no branch)      | linear           | linear            | (n/a)             | next     | True        | False     | No futures
+1    | (no branch)      | (no branch)      | linear           | linear            | (n/a)             | next     | True        | False     | No futures
+M    | 1 (Merge)        | 1 (Merge)        | state S          | state S           | superposition S#S | 1        | Maybe       | True      | Both futures identical at same Merge PC
+
+Below is the exact meaning of each log line.
+
+============================================================
+SCENARIO 7 — LOG INTERPRETATION
+============================================================
+
+------------------------------------------------------------
+LINE 1
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 7:FalseState:RunPath:End
+Context Flag: Maybe
+PC: 1
+Was Merged: False
+```
+
+This is the **FalseState future**:
+
+- BranchMaybe treated R0 as False  
+- It jumped to PC=1  
+- PC=1 is a Merge instruction  
+- No instructions executed before Merge  
+- ContextFlag=Maybe because branching occurred  
+- WasMerged=False because merge has not yet executed  
+
+------------------------------------------------------------
+LINE 2
+------------------------------------------------------------
+```
+Clone:Clone:Scenario 7:TrueState:RunPath:End
+Context Flag: Maybe
+PC: 1
+Was Merged: False
+```
+
+This is the **TrueState future**:
+
+- BranchMaybe treated R0 as True  
+- It also jumped to PC=1  
+- PC=1 is the same Merge instruction  
+- No instructions executed before Merge  
+- ContextFlag=Maybe  
+- WasMerged=False  
+
+Key point:  
+Both futures reached **the same PC** and have **identical states**.
+
+This is the hallmark of Scenario 7.
+
+------------------------------------------------------------
+LINES 3 AND 4 — MERGE
+------------------------------------------------------------
+```
+Clone:Scenario 7Clone:Clone:Scenario 7:TrueState:RunPath:End:MergeTrue:Merged:MergedStates:CopyMerge
+Context Flag: Maybe
+PC: 1
+Was Merged: True
+```
+
+This is the merge event.
+
+Meaning:
+
+- Merge sees two futures  
+- Both futures have **identical register states**  
+- Both futures have **identical memory states**  
+- Both futures have **identical context flags**  
+- Therefore Merge collapses them  
+- ContextFlag stays Maybe  
+- WasMerged=True  
+- PC remains at the merge point (PC=1)  
+
+Your VM logs the merge twice:
+
+- First line: merge event  
+- Second line: unified post‑merge state  
+
+This is normal for your logging system.
+
+------------------------------------------------------------
+FINAL LINE
+------------------------------------------------------------
+```
+Scenario 7 complete. State machine is in superposition True, Merged: True
+```
+
+Correct.
+
+This is your VM’s way of saying:
+
+- The machine entered Maybe context  
+- The TRUE and FALSE futures were identical  
+- Merge collapsed them  
+- The final state is a superposition (Maybe)  
+- The merged state is “True#True” in your internal representation  
+
+============================================================
+FINAL SUMMARY OF SCENARIO 7
+============================================================
+
+Scenario 7 produces:
+
+- BranchMaybe forks two futures because R0 = Maybe  
+- TRUE and FALSE futures both jump to the same PC  
+- Both futures execute no different instructions  
+- Both futures produce identical states  
+- Merge collapses them  
+- No register becomes Maybe  
+- ContextFlag = Maybe  
+- WasMerged = True  
+- Final state is a superposition (your VM logs this as “True, Merged: True”)
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+Most of the scenarios **don’t do much** because their purpose is structural, not computational. They exist to validate the VM’s control‑flow semantics,
+	branching rules, and merge mechanics — not to perform meaningful arithmetic or state mutation.
+
+Here’s the distilled reality:
+
+### Why most scenarios “don’t do much”
+- **Scenario 1**  
+  BranchMaybe forks → both futures immediately hit Merge → states identical → collapse.  
+  No register changes.
+
+- **Scenario 2**  
+  Simple addition truth table.  
+  Only meaningful because it demonstrates Maybe propagation.
+
+- **Scenario 3**  
+  True path does a NOP, False path does nothing → both hit Merge → identical → collapse.  
+  R1 stays all True.
+
+- **Scenario 4**  
+  One of the few that *does* something: True sets R5=True, False sets R5=False → divergence → R5 becomes Maybe.
+
+- **Scenario 5**  
+  True and False paths do different work but end identical → collapse → no register changes.
+
+- **Scenario 6**  
+  Loop on both sides → both futures converge → collapse → no register changes.
+
+- **Scenario 7**  
+  Both futures jump to the same Merge PC → identical → collapse → no register changes.
+
+### The only scenarios with meaningful state mutation
+- **Scenario 2** (arithmetic truth table)
+- **Scenario 4** (R5 becomes Maybe)
+
+Everything else is essentially a **control‑flow test**:
+
+- Does BranchMaybe fork correctly?  
+- Do futures run independently?  
+- Do they converge?  
+- Does Merge collapse identical states?  
+- Does ContextFlag propagate Maybe?  
+- Does the VM choose the correct unified PC?
+
+
+
+
+
+
+
+
+Instruction[] program =
+{
+    // Initialize registers (pure instructions)
+    new Instruction { Op = OpCode.Set,        Arg1 = 0, Arg2 = 2, Arg3 = 0 }, // R0 = Maybe
+    new Instruction { Op = OpCode.Set,        Arg1 = 3, Arg2 = 1, Arg3 = 0 }, // R3 = True
+    new Instruction { Op = OpCode.Set,        Arg1 = 5, Arg2 = 1, Arg3 = 0 }, // R5 = True
+    new Instruction { Op = OpCode.Set,        Arg1 = 7, Arg2 = 0, Arg3 = 0 }, // R7 = False
+
+    // *** YOUR BRANCHMAYBE WAS MISSING — HERE IT IS ***
+    new Instruction { Op = OpCode.BranchMaybe, Arg1 = 0, Arg2 = 1, Arg3 = 6 },
+
+    // TRUE PATH (starts at PC = 1)
+    new Instruction { Op = OpCode.MInit,      Arg1 = 256 },
+    new Instruction { Op = OpCode.RMStore,    Arg1 = 1,   Arg2 = 5 }, // MEM[1] = R5
+    new Instruction { Op = OpCode.Add,        Arg1 = 2,   Arg2 = 1, Arg3 = 3 }, // R2 = R1 + R3
+    new Instruction { Op = OpCode.RMStore,    Arg1 = 100, Arg2 = 2 }, // MEM[100] = R2
+    new Instruction { Op = OpCode.Add,        Arg1 = 4,   Arg2 = 2, Arg3 = 1 }, // R4 = R2 + R1
+    new Instruction { Op = OpCode.Merge },
+
+    // FALSE PATH (starts at PC = 6)
+    new Instruction { Op = OpCode.MInit,      Arg1 = 256 },
+    new Instruction { Op = OpCode.RMStore,    Arg1 = 1,   Arg2 = 7 }, // MEM[1] = R7
+    new Instruction { Op = OpCode.Add,        Arg1 = 2,   Arg2 = 1, Arg3 = 3 }, // R2 = R1 + R3
+    new Instruction { Op = OpCode.RMStore,    Arg1 = 100, Arg2 = 2 }, // MEM[100] = R2
+    new Instruction { Op = OpCode.Add,        Arg1 = 4,   Arg2 = 2, Arg3 = 1 }, // R4 = R2 + R1
+    new Instruction { Op = OpCode.Merge }
+};
+
+VM vm = new VM("Scenario X", program);
+
+
+
